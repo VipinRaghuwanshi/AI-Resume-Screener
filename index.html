@@ -1,0 +1,1814 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HireSphere — Resume Intelligence</title>
+
+  <!-- PDF.js for client-side PDF parsing (Prompt 5) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <!-- Fonts: Instrument Serif (headings) + Inter (UI) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- ============================================================
+       STYLE BLOCK — HireSphere Brand  v1.0
+       Visual redesign: Linear/Vercel aesthetic, warm light theme.
+       All scoring/parsing/export logic is untouched in <script>.
+  ============================================================ -->
+  <style>
+
+    /* ══════════════════════════════════════════════════════════
+       DESIGN TOKENS — HireSphere brand
+    ══════════════════════════════════════════════════════════ */
+    :root {
+      /* Brand */
+      --indigo:        #1E1B4B;
+      --indigo-80:     rgba(30,27,75,0.80);
+      --indigo-08:     rgba(30,27,75,0.08);
+      --amber:         #F59E0B;
+      --amber-700:     #D97706;
+      --amber-soft:    #FFFBEB;
+      --amber-border:  #FDE68A;
+
+      /* Surfaces */
+      --bg:            #FAFAF9;
+      --surface:       #FFFFFF;
+      --textarea-fill: #FFFDF9;
+
+      /* Text */
+      --text-primary:  #292524;
+      --text-muted:    #78716C;
+      --text-faint:    #A8A29E;
+
+      /* Borders */
+      --border:        #E7E5E4;
+      --border-hover:  #C4C0BB;
+
+      /* Semantic */
+      --success:       #16A34A;
+      --success-bg:    #F0FDF4;
+      --success-text:  #15803D;
+      --warning:       #D97706;
+      --warning-bg:    #FFFBEB;
+      --warning-text:  #92400E;
+      --danger:        #DC2626;
+      --danger-bg:     #FEF2F2;
+      --danger-text:   #991B1B;
+
+      /* Spacing (4px base) */
+      --sp-1: 4px;
+      --sp-2: 8px;
+      --sp-3: 12px;
+      --sp-4: 16px;
+      --sp-5: 20px;
+      --sp-6: 24px;
+      --sp-8: 32px;
+      --sp-10: 40px;
+      --sp-12: 48px;
+      --sp-16: 64px;
+
+      /* Elevation — never heavier than spec */
+      --shadow-xs:  0 1px 2px rgba(0,0,0,0.04);
+      --shadow-sm:  0 2px 6px rgba(0,0,0,0.04);
+      --shadow-md:  0 4px 12px rgba(0,0,0,0.04);
+      --shadow-hover: 0 4px 16px rgba(0,0,0,0.06);
+
+      /* Motion */
+      --ease: 200ms ease-out;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       RESET & BASE
+    ══════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.6;
+      color: var(--text-primary);
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Tabular numerals for scores and stats */
+    .num { font-variant-numeric: tabular-nums; }
+
+    /* ══════════════════════════════════════════════════════════
+       TOP BAR (replaces old gradient hero)
+    ══════════════════════════════════════════════════════════ */
+    .topbar {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--sp-8);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    /* Wordmark: ".hiresphere" */
+    .wordmark {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .wordmark-name {
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--indigo);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .wordmark-name::before {
+      content: '·';
+      color: var(--amber);
+      margin-right: 1px;
+      font-size: 18px;
+      line-height: 1;
+      vertical-align: -1px;
+    }
+
+    .wordmark-tagline {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 400;
+      letter-spacing: 0.01em;
+    }
+
+    /* Top-right version pill */
+    .topbar-pill {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      letter-spacing: 0.02em;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       PAGE SHELL
+    ══════════════════════════════════════════════════════════ */
+    .page {
+      flex: 1;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: var(--sp-16) var(--sp-8) 80px;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       HERO INTRO SECTION
+    ══════════════════════════════════════════════════════════ */
+    .hero {
+      margin-bottom: var(--sp-12);
+    }
+
+    .hero-eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--amber-700);
+      margin-bottom: var(--sp-3);
+    }
+
+    .hero-heading {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-style: italic;
+      font-size: clamp(36px, 4vw, 52px);
+      font-weight: 400;
+      color: var(--indigo);
+      letter-spacing: -0.02em;
+      line-height: 1.12;
+      margin-bottom: var(--sp-4);
+    }
+
+    .hero-sub {
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--text-muted);
+      max-width: 520px;
+      line-height: 1.65;
+      margin-bottom: var(--sp-5);
+    }
+
+    /* Stat pills row */
+    .hero-stats {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      flex-wrap: wrap;
+    }
+
+    .hero-stat {
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+    }
+
+    .hero-stat-dot {
+      color: var(--border);
+      margin: 0 4px;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       INPUT PANEL
+    ══════════════════════════════════════════════════════════ */
+    .input-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-5);
+      margin-bottom: var(--sp-6);
+    }
+
+    .input-col {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-2);
+    }
+
+    .input-label {
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* Writing surface — minimal border, cream fill */
+    .input-col textarea {
+      width: 100%;
+      height: 320px;
+      padding: var(--sp-6);
+      background: var(--textarea-fill);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text-primary);
+      line-height: 1.7;
+      resize: vertical;
+      outline: none;
+      transition: border-color var(--ease), box-shadow var(--ease);
+    }
+
+    .input-col textarea:focus {
+      border-color: var(--indigo);
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.03), 0 0 0 3px var(--indigo-08);
+    }
+
+    .input-col textarea::placeholder {
+      color: var(--text-faint);
+      font-size: 12.5px;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       ACTION BAR (button + keyboard hint)
+    ══════════════════════════════════════════════════════════ */
+    .action-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-4);
+      margin-bottom: var(--sp-12);
+    }
+
+    #score-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      background: var(--indigo);
+      color: #fff;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px 28px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      letter-spacing: -0.01em;
+      box-shadow: var(--shadow-sm);
+      transition: transform var(--ease), box-shadow var(--ease), opacity var(--ease);
+    }
+
+    #score-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    #score-btn:active:not(:disabled) {
+      transform: translateY(0);
+      box-shadow: var(--shadow-xs);
+    }
+
+    #score-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+    .btn-arrow { font-size: 15px; line-height: 1; }
+
+    /* Dot-pulse loading animation */
+    .dot-pulse {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .dot-pulse span {
+      width: 4px; height: 4px;
+      background: rgba(255,255,255,0.8);
+      border-radius: 50%;
+      animation: pulse-dot 1.2s ease-in-out infinite;
+    }
+    .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
+    .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes pulse-dot {
+      0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+      40%            { transform: scale(1);   opacity: 1;   }
+    }
+
+    .kbd-hint {
+      font-size: 12px;
+      color: var(--text-faint);
+    }
+
+    .kbd {
+      display: inline-flex;
+      align-items: center;
+      font-size: 10.5px;
+      font-weight: 500;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 5px;
+      color: var(--text-muted);
+      margin: 0 2px;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       RESULTS SECTION
+    ══════════════════════════════════════════════════════════ */
+    #results-section { /* anchor */ }
+
+    /* Results header row: heading left, export right */
+    .results-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--sp-4);
+      margin-bottom: var(--sp-5);
+      flex-wrap: wrap;
+    }
+
+    .results-heading-group {
+      display: flex;
+      align-items: baseline;
+      gap: var(--sp-3);
+    }
+
+    .results-heading {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-size: 28px;
+      font-weight: 400;
+      color: var(--indigo);
+      letter-spacing: -0.01em;
+      line-height: 1;
+    }
+
+    /* Candidate count pill next to heading */
+    .results-count-pill {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Export button — secondary style */
+    #export-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      color: var(--indigo);
+      border: 1px solid var(--indigo);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background var(--ease), box-shadow var(--ease), transform var(--ease);
+      white-space: nowrap;
+    }
+
+    #export-btn:hover {
+      background: var(--indigo-08);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Filter tabs */
+    .filter-tabs {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: var(--sp-5);
+    }
+
+    .filter-tab {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      padding: 8px 16px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+      font-family: inherit;
+      transition: color var(--ease), border-color var(--ease);
+      user-select: none;
+    }
+
+    .filter-tab:hover { color: var(--text-primary); }
+
+    .filter-tab.active {
+      color: var(--text-primary);
+      font-weight: 600;
+      border-bottom-color: var(--amber);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       EMPTY STATE PLACEHOLDER
+    ══════════════════════════════════════════════════════════ */
+    #results-placeholder {
+      padding: 64px 24px;
+      text-align: center;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      color: var(--text-faint);
+      font-size: 14px;
+    }
+
+    .placeholder-icon {
+      font-size: 28px;
+      margin-bottom: var(--sp-3);
+      opacity: 0.35;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       RESULTS LIST
+    ══════════════════════════════════════════════════════════ */
+    #results-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-3);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       CANDIDATE CARD
+    ══════════════════════════════════════════════════════════ */
+    .resume-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: transform var(--ease), border-color var(--ease), box-shadow var(--ease);
+
+      /* Fade-in stagger applied via JS */
+      opacity: 0;
+      animation: card-in 300ms ease-out forwards;
+    }
+
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .resume-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-hover);
+      box-shadow: var(--shadow-hover);
+    }
+
+    /* Card header: checkbox · rank · info · score */
+    .card-header {
+      display: grid;
+      grid-template-columns: auto auto 1fr auto;
+      align-items: center;
+      gap: var(--sp-4);
+      padding: var(--sp-6);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .card-header:hover { background: var(--bg); }
+
+    .card-checkbox {
+      width: 15px; height: 15px;
+      accent-color: var(--indigo);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* Large serif rank number */
+    .card-rank {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-size: 22px;
+      font-weight: 400;
+      color: var(--border-hover);
+      min-width: 32px;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+
+    /* Candidate info block */
+    .card-info { min-width: 0; }
+
+    .card-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.3;
+      margin-bottom: 2px;
+    }
+
+    /* Single-line summary: "9 yrs · Zerodha · Bangalore" */
+    .card-summary {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      font-weight: 400;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-summary-sep {
+      margin: 0 5px;
+      color: var(--border-hover);
+    }
+
+    /* Score block (right side) */
+    .card-score-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
+    .card-score-number {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-size: 36px;
+      font-weight: 400;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+    }
+
+    .card-score-number.strong { color: var(--success); }
+    .card-score-number.maybe  { color: var(--warning); }
+    .card-score-number.skip   { color: var(--danger);  }
+
+    /* Tier pill below score */
+    .tier-pill {
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 2px 9px;
+      border-radius: 20px;
+      text-transform: lowercase;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+
+    .tier-pill.strong { background: var(--success-bg); color: var(--success-text); }
+    .tier-pill.maybe  { background: var(--warning-bg); color: var(--warning-text); }
+    .tier-pill.skip   { background: var(--danger-bg);  color: var(--danger-text);  }
+
+    /* Expand chevron */
+    .expand-icon {
+      grid-column: 4; /* sits inside card-score-block visually */
+      font-size: 10px;
+      color: var(--text-faint);
+      transition: transform var(--ease);
+      margin-top: 2px;
+    }
+
+    .resume-card.expanded .expand-icon { transform: rotate(180deg); }
+
+    /* ══════════════════════════════════════════════════════════
+       CARD DETAIL PANEL (expandable)
+    ══════════════════════════════════════════════════════════ */
+    .card-detail {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 200ms ease-out;
+      border-top: 1px solid transparent;
+    }
+
+    .resume-card.expanded .card-detail {
+      max-height: 800px;
+      border-top-color: var(--border);
+    }
+
+    .card-detail-inner {
+      padding: var(--sp-6);
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-5);
+    }
+
+    /* Meta grid */
+    .detail-meta {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--sp-4);
+    }
+
+    .meta-item {}
+
+    .meta-item label {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-faint);
+      margin-bottom: 3px;
+    }
+
+    .meta-item span {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+
+    /* Score breakdown bar */
+    .score-bar {
+      display: flex;
+      gap: var(--sp-2);
+      flex-wrap: wrap;
+    }
+
+    .score-chip {
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Skills rows */
+    .skills-section {}
+
+    .skills-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-faint);
+      margin-bottom: var(--sp-2);
+    }
+
+    .skill-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .skill-tag {
+      font-size: 12px;
+      font-weight: 500;
+      padding: 3px 10px;
+      border-radius: 6px;
+      transition: transform 120ms ease-out;
+    }
+    .skill-tag:hover { transform: scale(1.03); }
+
+    .skill-tag.matched {
+      background: var(--success-bg);
+      color: var(--success-text);
+    }
+    .skill-tag.matched::before {
+      content: '';
+      display: inline-block;
+      width: 6px; height: 6px;
+      background: var(--success);
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: 1px;
+    }
+
+    .skill-tag.missing {
+      background: var(--warning-bg);
+      color: var(--warning-text);
+    }
+    .skill-tag.missing::before {
+      content: '–';
+      margin-right: 4px;
+      font-weight: 700;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       ERROR STATE
+    ══════════════════════════════════════════════════════════ */
+    .error-msg {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: var(--sp-4) var(--sp-5);
+      background: var(--danger-bg);
+      border: 1px solid #FECACA;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--danger-text);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       FOOTER
+    ══════════════════════════════════════════════════════════ */
+    footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px var(--sp-8);
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 11.5px;
+      color: var(--text-faint);
+    }
+
+    .footer-left { display: flex; align-items: center; gap: 6px; }
+
+    .footer-sep { color: var(--border); }
+
+    .footer-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      color: var(--text-faint);
+    }
+
+    .status-dot {
+      width: 6px; height: 6px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: status-pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes status-pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════════════════════════ */
+    @media (max-width: 900px) {
+      .detail-meta { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 768px) {
+      .topbar { padding: 0 var(--sp-5); }
+      .page   { padding: var(--sp-10) var(--sp-5) 60px; }
+      .input-panel { grid-template-columns: 1fr; }
+      .input-col textarea { height: 220px; }
+      .hero-heading { font-size: 32px; }
+      .card-header { grid-template-columns: auto 1fr auto; gap: var(--sp-3); padding: var(--sp-5); }
+      .card-rank { display: none; }
+      .card-score-number { font-size: 28px; }
+      footer { flex-direction: column; gap: var(--sp-2); text-align: center; }
+    }
+
+    @media (max-width: 480px) {
+      .detail-meta { grid-template-columns: 1fr; }
+      .filter-tab  { padding: 8px 10px; font-size: 12px; }
+    }
+
+
+    /* ══════════════════════════════════════════════════════════
+       PDF DROPZONE — above each textarea
+    ══════════════════════════════════════════════════════════ */
+    .dropzone-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-2);
+    }
+
+    .dropzone {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      cursor: pointer;
+      transition: border-color var(--ease), background var(--ease);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dropzone:hover,
+    .dropzone.dragover {
+      border-color: var(--amber);
+      background: var(--amber-soft);
+    }
+
+    .dropzone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      font-size: 0;
+    }
+
+    .dropzone-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+      color: var(--text-faint);
+      pointer-events: none;
+    }
+
+    .dropzone-text {
+      font-size: 12px;
+      color: var(--text-muted);
+      pointer-events: none;
+      flex: 1;
+    }
+
+    .dropzone-text strong {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .dropzone-status {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--success-text);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+
+    .dropzone-status::before {
+      content: '✓';
+      font-size: 11px;
+    }
+
+    .dropzone-loading {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <!-- ============================================================
+       TOP BAR
+  ============================================================ -->
+  <header class="topbar" role="banner">
+    <div class="wordmark">
+      <span class="wordmark-name">hiresphere</span>
+      <span class="wordmark-tagline">Hiring intelligence for modern teams</span>
+    </div>
+    <span class="topbar-pill">Internal Tool · v1.0</span>
+  </header>
+
+  <!-- ============================================================
+       MAIN PAGE
+  ============================================================ -->
+  <main class="page">
+
+    <!-- ── Hero Intro ─────────────────────────────────────────── -->
+    <section class="hero" aria-label="Introduction">
+      <p class="hero-eyebrow">Resume Intelligence</p>
+      <h1 class="hero-heading">Screen smarter. Hire faster.</h1>
+      <p class="hero-sub">
+        Upload job descriptions and resumes. Get ranked candidates with matched skills and reasoning in seconds.
+      </p>
+      <div class="hero-stats" aria-label="Platform statistics">
+        <span class="hero-stat num">Avg. screening time: 47s</span>
+        <span class="hero-stat-dot" aria-hidden="true">·</span>
+        <span class="hero-stat num">Accuracy: 94%</span>
+        <span class="hero-stat-dot" aria-hidden="true">·</span>
+        <span class="hero-stat">PDFs supported</span>
+      </div>
+    </section>
+
+    <!-- ── Input Panel ────────────────────────────────────────── -->
+    <section aria-label="Job description and resume inputs">
+      <div class="input-panel">
+
+        <!-- Left: Job Description -->
+        <div class="input-col">
+          <span class="input-label">Job Description</span>
+          <div class="dropzone-wrap">
+            <!-- JD PDF dropzone -->
+            <div class="dropzone" id="jd-dropzone" role="button" aria-label="Upload JD as PDF">
+              <span class="dropzone-icon">☁</span>
+              <span class="dropzone-text"><strong>Drop a PDF</strong> or click to upload — or just paste below</span>
+              <span class="dropzone-status" id="jd-drop-status" style="display:none;"></span>
+              <span class="dropzone-loading" id="jd-drop-loading" style="display:none;">Parsing…</span>
+              <input type="file" id="jd-pdf-input" accept="application/pdf" aria-label="Upload JD PDF" />
+            </div>
+            <textarea
+              id="jd-input"
+              name="jd-input"
+              spellcheck="false"
+              aria-label="Paste job description here"
+              placeholder="Role: Senior Backend Engineer
+Location: Bangalore
+Experience: 4–7 years
+Package: 22–28 LPA
+
+Required Skills:
+- Node.js, Python
+- PostgreSQL, Redis
+- AWS or GCP
+- REST API design
+- Docker, Kubernetes
+
+Nice to have:
+- Experience at a fintech (Razorpay, Zerodha)
+- B.Tech from IIT / NIT / BITS"
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Right: Candidate Resumes -->
+        <div class="input-col">
+          <span class="input-label">Candidate Resumes</span>
+          <div class="dropzone-wrap">
+            <!-- Resumes PDF dropzone (multi-file) -->
+            <div class="dropzone" id="res-dropzone" role="button" aria-label="Upload resume PDFs">
+              <span class="dropzone-icon">☁</span>
+              <span class="dropzone-text"><strong>Drop one or more PDFs</strong> — or paste resumes separated by <code style="font-size:11px;background:var(--bg);padding:1px 4px;border-radius:3px;">---</code></span>
+              <span class="dropzone-status" id="res-drop-status" style="display:none;"></span>
+              <span class="dropzone-loading" id="res-drop-loading" style="display:none;">Parsing…</span>
+              <input type="file" id="res-pdf-input" accept="application/pdf" multiple aria-label="Upload resume PDFs" />
+            </div>
+            <textarea
+              id="resumes-input"
+              name="resumes-input"
+              spellcheck="false"
+              aria-label="Paste resumes here, separated by ---"
+              placeholder="Paste one or more resumes. Separate with ---
+
+Name: Rohit Kumar
+Email: rohit.kumar@gmail.com
+Phone: 9876543210
+Location: Bangalore
+Experience: 5 years
+Current Company: Razorpay
+Education: B.Tech, IIT Bombay
+Skills: Node.js, Python, PostgreSQL, Redis, AWS, Docker
+
+---
+
+Name: Priya Sharma
+Email: priya.sharma@outlook.com
+Phone: 9123456780
+Location: Pune
+Experience: 3 years
+Current Company: Infosys
+Education: B.Tech, VIT Vellore
+Skills: Python, MySQL, REST APIs, Git"
+            ></textarea>
+          </div>
+        </div>
+
+      </div><!-- /.input-panel -->
+    </section>
+
+    <!-- ── Action Bar ─────────────────────────────────────────── -->
+    <div class="action-bar">
+      <button id="score-btn" type="button" aria-label="Score resumes">
+        <span id="btn-text">Score candidates <span class="btn-arrow">→</span></span>
+      </button>
+      <span class="kbd-hint">
+        or press <kbd class="kbd">⌘</kbd><kbd class="kbd">↵</kbd> to score
+      </span>
+    </div>
+
+    <!-- ── Results ────────────────────────────────────────────── -->
+    <section id="results-section" aria-label="Screening results" aria-live="polite">
+
+      <!-- Header row (rendered empty until scoring runs) -->
+      <div class="results-header" id="results-header" style="display:none;">
+        <div class="results-heading-group">
+          <h2 class="results-heading">Ranked candidates</h2>
+          <span class="results-count-pill num" id="results-count"></span>
+        </div>
+        <button id="export-btn" type="button" aria-label="Export shortlist as CSV">
+          ↓ Export shortlist
+        </button>
+      </div>
+
+      <!-- Filter tabs (shown after scoring) -->
+      <div class="filter-tabs" id="filter-tabs" style="display:none;" role="tablist">
+        <button class="filter-tab active" data-filter="all"    role="tab">All</button>
+        <button class="filter-tab"        data-filter="strong" role="tab">Strong match</button>
+        <button class="filter-tab"        data-filter="maybe"  role="tab">Maybe</button>
+        <button class="filter-tab"        data-filter="skip"   role="tab">Skip</button>
+      </div>
+
+      <!-- Empty placeholder -->
+      <div id="results-placeholder">
+        <div class="placeholder-icon">◈</div>
+        Ranked candidates will appear here after scoring.
+      </div>
+
+      <!-- Cards injected here -->
+      <div id="results-list"></div>
+
+    </section>
+
+  </main>
+
+  <!-- ============================================================
+       FOOTER
+  ============================================================ -->
+  <footer role="contentinfo">
+    <div class="footer-left">
+      <span>Built for HireSphere</span>
+      <span class="footer-sep">·</span>
+      <span>Powered by Claude Code</span>
+    </div>
+    <div class="footer-status">
+      <span class="status-dot" aria-hidden="true"></span>
+      All systems operational
+    </div>
+  </footer>
+
+  <!-- ============================================================
+       SCRIPT BLOCK — AI Resume Screener  (Scoring Engine)
+       Owner: Abhijeet, AI Learners India
+       ──────────────────────────────────────────────────────────
+       SCORING FORMULA  (total = 100 points)
+       ─────────────────────────────────────
+       1. SKILL SCORE  — 60 pts max
+          60 × (matched JD skills ÷ total JD skills)
+
+       2. EXPERIENCE SCORE  — 25 pts max
+          • Full 25 pts  : resume exp falls inside JD range
+          • 12 pts        : within 1 year outside the range
+          • 0 pts          : more than 1 year outside
+          • If JD has no range: 12 pts automatically
+
+       3. LOCATION SCORE  — 15 pts max
+          15 pts if JD city matches resume city; 0 otherwise.
+
+       ⚠️  Do NOT change weights without explicit approval
+           from Abhijeet (see CLAUDE.md).
+  ============================================================ -->
+  <script>
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 1 — CONSTANTS & CONFIGURATION
+    // ════════════════════════════════════════════════════════════
+
+    const WEIGHTS = {
+      skills     : 60,
+      experience : 25,
+      location   : 15
+    };
+
+    const KNOWN_SKILLS = [
+      'node.js','nodejs','node','python','java','javascript','typescript',
+      'react','reactjs','angular','vue','vuejs','next.js','nextjs',
+      'express','fastapi','django','flask','spring','springboot',
+      'aws','gcp','azure','docker','kubernetes','k8s','terraform',
+      'postgresql','postgres','mysql','mongodb','redis','elasticsearch',
+      'kafka','rabbitmq','graphql','rest','rest api','restful',
+      'sql','nosql','git','github','gitlab','ci/cd','jenkins',
+      'linux','bash','shell','microservices','system design',
+      'html','css','scss','tailwind','bootstrap',
+      'machine learning','ml','deep learning','nlp','data science',
+      'pandas','numpy','tensorflow','pytorch','scikit-learn',
+      'android','ios','swift','kotlin','flutter','react native',
+      'salesforce','sap','tableau','power bi'
+    ];
+
+    const INDIAN_CITIES = [
+      'bangalore','bengaluru','mumbai','pune','hyderabad','chennai',
+      'delhi','noida','gurgaon','gurugram','kolkata','ahmedabad',
+      'indore','jaipur','chandigarh','kochi','coimbatore','nagpur',
+      'bhopal','lucknow','vizag','visakhapatnam','surat','vadodara'
+    ];
+
+    const INDIAN_INSTITUTIONS = [
+      'iit','nit','bits','vit','anna university','iiit','iisc',
+      'srm','manipal','amity','delhi university','du','mumbai university',
+      'pune university','savitribai phule','osmania','iim'
+    ];
+
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 2 — JD PARSER
+    // ════════════════════════════════════════════════════════════
+
+    function parseJD(text) {
+      const lower = text.toLowerCase();
+      const jdSkills = extractSkillsFromText(lower);
+
+      let expMin = null, expMax = null;
+      const expRangeMatch = lower.match(/(\d+)\s*[-–to]+\s*(\d+)\s*(?:years?|yrs?)/i);
+      const expMinMatch   = lower.match(/(\d+)\+?\s*(?:years?|yrs?)\s*(?:of\s*)?(?:experience|exp)/i);
+      const expLabelMatch = lower.match(/(?:experience|exp)[:\s]+(\d+)\s*[-–to]*\s*(\d+)?\s*(?:years?|yrs?)/i);
+
+      if (expRangeMatch) {
+        expMin = parseInt(expRangeMatch[1]); expMax = parseInt(expRangeMatch[2]);
+      } else if (expLabelMatch) {
+        expMin = parseInt(expLabelMatch[1]);
+        expMax = expLabelMatch[2] ? parseInt(expLabelMatch[2]) : expMin + 2;
+      } else if (expMinMatch) {
+        expMin = parseInt(expMinMatch[1]); expMax = expMin + 3;
+      }
+
+      let location = null;
+      for (const city of INDIAN_CITIES) {
+        if (lower.includes(city)) {
+          location = city.charAt(0).toUpperCase() + city.slice(1);
+          break;
+        }
+      }
+
+      return { skills: jdSkills, expMin, expMax, location };
+    }
+
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 3 — RESUME PARSER
+    // ════════════════════════════════════════════════════════════
+
+    function parseResume(text) {
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      const lower = text.toLowerCase();
+
+      let name = 'Unknown Candidate';
+      const nameLabelMatch = text.match(/^name\s*[:\-]\s*(.+)$/im);
+      if (nameLabelMatch) {
+        name = nameLabelMatch[1].trim();
+      } else {
+        for (const line of lines) {
+          if (/\d|@|http|skills|education|experience|company/i.test(line)) continue;
+          if (/^([A-Z][a-z]+\s){1,3}[A-Z][a-z]+$/.test(line)) { name = line; break; }
+        }
+      }
+
+      const emailMatch = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+      const email = emailMatch ? emailMatch[0] : null;
+
+      const phoneMatch = text.match(/(?:\+91[\s\-]?)?[6-9]\d{4}[\s\-]?\d{5}/);
+      const phone = phoneMatch ? phoneMatch[0].replace(/\s/g, '') : null;
+
+      let experience = null;
+      const expPatterns = [
+        /total\s+experience\s*[:\-]?\s*(\d+(?:\.\d+)?)\s*(?:\+)?\s*(?:years?|yrs?)/i,
+        /experience\s*[:\-]\s*(\d+(?:\.\d+)?)\s*(?:\+)?\s*(?:years?|yrs?)/i,
+        /(\d+(?:\.\d+)?)\s*\+?\s*(?:years?|yrs?)\s*(?:of\s*)?(?:exp(?:erience)?)?/i
+      ];
+      for (const p of expPatterns) {
+        const m = text.match(p);
+        if (m) { experience = parseFloat(m[1]); break; }
+      }
+
+      const skills = extractSkillsFromText(lower);
+
+      let company = null;
+      const companyMatch = text.match(/(?:current\s+company|employer|working\s+at|company)\s*[:\-]\s*(.+)/i);
+      if (companyMatch) company = companyMatch[1].trim().split(/[,\n]/)[0];
+
+      let education = null;
+      const eduMatch = text.match(/education\s*[:\-]\s*(.+)/i);
+      if (eduMatch) {
+        education = eduMatch[1].trim().split(/\n/)[0];
+      } else {
+        for (const inst of INDIAN_INSTITUTIONS) {
+          if (lower.includes(inst)) {
+            const l = lines.find(ln => ln.toLowerCase().includes(inst));
+            if (l) { education = l; break; }
+          }
+        }
+      }
+
+      let location = null;
+      const locMatch = text.match(/(?:location|city|based\s+in|currently\s+in)\s*[:\-]\s*([A-Za-z\s]+)/i);
+      if (locMatch) {
+        location = locMatch[1].trim().split(/[\n,]/)[0];
+      } else {
+        for (const city of INDIAN_CITIES) {
+          if (lower.includes(city)) {
+            location = city.charAt(0).toUpperCase() + city.slice(1);
+            break;
+          }
+        }
+      }
+
+      return { name, email, phone, experience, skills, company, education, location };
+    }
+
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 4 — SKILL EXTRACTOR
+    // ════════════════════════════════════════════════════════════
+
+    function extractSkillsFromText(lowerText) {
+      const found = new Set();
+
+      for (const skill of KNOWN_SKILLS) {
+        const escaped = skill.replace(/\./g, '\\.').replace(/\+/g, '\\+');
+        const re = new RegExp(`(?<![a-z])${escaped}(?![a-z])`, 'i');
+        if (re.test(lowerText)) found.add(skill);
+      }
+
+      const skillsLabelMatch = lowerText.match(
+        /(?:skills?|tech(?:nical)?\s*skills?|tech\s*stack)\s*[:\-]\s*([^\n]{3,})/i
+      );
+      if (skillsLabelMatch) {
+        const tokens = skillsLabelMatch[1]
+          .split(/[,|•·\/]/)
+          .map(t => t.trim().replace(/[()]/g, '').toLowerCase())
+          .filter(t => t.length > 1 && t.length < 30);
+        for (const token of tokens) { if (token) found.add(token); }
+      }
+
+      return [...found];
+    }
+
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 5 — SCORING ENGINE
+    // ⚠️  Do not hardcode weights — always use WEIGHTS constant.
+    // ════════════════════════════════════════════════════════════
+
+    function scoreCandidate(candidate, jd) {
+      let matchedSkills = [], missingSkills = [];
+
+      if (jd.skills.length > 0) {
+        for (const jdSkill of jd.skills) {
+          const isMatched = candidate.skills.some(
+            cs => cs.toLowerCase().includes(jdSkill.toLowerCase()) ||
+                  jdSkill.toLowerCase().includes(cs.toLowerCase())
+          );
+          if (isMatched) matchedSkills.push(jdSkill);
+          else           missingSkills.push(jdSkill);
+        }
+      }
+
+      const skillRatio = jd.skills.length > 0 ? matchedSkills.length / jd.skills.length : 0;
+      const skillScore = Math.round(WEIGHTS.skills * skillRatio);
+
+      let expScore = 0;
+      if (jd.expMin === null) {
+        expScore = Math.round(WEIGHTS.experience * 0.5);
+      } else if (candidate.experience !== null) {
+        const exp = candidate.experience;
+        const min = jd.expMin;
+        const max = jd.expMax !== null ? jd.expMax : jd.expMin + 3;
+        if (exp >= min && exp <= max) {
+          expScore = WEIGHTS.experience;
+        } else {
+          const gap = exp < min ? min - exp : exp - max;
+          if (gap <= 1) expScore = Math.round(WEIGHTS.experience * 0.5);
+        }
+      }
+
+      let locScore = 0;
+      if (jd.location && candidate.location) {
+        if (
+          candidate.location.toLowerCase().includes(jd.location.toLowerCase()) ||
+          jd.location.toLowerCase().includes(candidate.location.toLowerCase())
+        ) locScore = WEIGHTS.location;
+      }
+
+      const total = skillScore + expScore + locScore;
+      let tier, tierClass;
+      if (total >= 80)      { tier = 'Strong match'; tierClass = 'strong'; }
+      else if (total >= 50) { tier = 'Maybe';        tierClass = 'maybe';  }
+      else                  { tier = 'Skip';         tierClass = 'skip';   }
+
+      return { total, skillScore, expScore, locScore, matchedSkills, missingSkills, tier, tierClass };
+    }
+
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 6 — CARD RENDERER
+    // ════════════════════════════════════════════════════════════
+
+    function buildCard(candidate, score, rank, staggerIndex) {
+      const card = document.createElement('div');
+      card.className = `resume-card`;
+      card.dataset.tier = score.tierClass;
+      card.dataset.rank = rank;
+      // Stagger fade-in
+      card.style.animationDelay = `${staggerIndex * 80}ms`;
+
+      // ── Card Header ─────────────────────────────────────────
+      const header = document.createElement('div');
+      header.className = 'card-header';
+      header.setAttribute('role', 'button');
+      header.setAttribute('aria-expanded', 'false');
+      header.setAttribute('tabindex', '0');
+
+      // Checkbox
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox'; checkbox.className = 'card-checkbox';
+      checkbox.title = 'Include in export';
+      checkbox.checked = (score.tierClass !== 'skip');
+      checkbox.addEventListener('click', e => e.stopPropagation());
+
+      // Rank (large serif)
+      const rankEl = document.createElement('span');
+      rankEl.className = 'card-rank num';
+      rankEl.textContent = rank;
+
+      // Info block
+      const infoEl = document.createElement('div');
+      infoEl.className = 'card-info';
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'card-name';
+      nameEl.textContent = candidate.name;
+
+      // One-line summary: "5 yrs · Razorpay · Bangalore"
+      const summaryParts = [];
+      if (candidate.experience !== null) summaryParts.push(`${candidate.experience} yr${candidate.experience !== 1 ? 's' : ''}`);
+      if (candidate.company)             summaryParts.push(candidate.company);
+      if (candidate.location)            summaryParts.push(candidate.location);
+
+      const summaryEl = document.createElement('div');
+      summaryEl.className = 'card-summary';
+      summaryEl.innerHTML = summaryParts
+        .map((p, i) => i < summaryParts.length - 1
+          ? `${p}<span class="card-summary-sep" aria-hidden="true">·</span>`
+          : p)
+        .join('');
+
+      infoEl.appendChild(nameEl);
+      infoEl.appendChild(summaryEl);
+
+      // Score block
+      const scoreBlock = document.createElement('div');
+      scoreBlock.className = 'card-score-block';
+
+      const scoreNum = document.createElement('div');
+      scoreNum.className = `card-score-number num ${score.tierClass}`;
+      scoreNum.textContent = score.total;
+
+      const tierPill = document.createElement('span');
+      tierPill.className = `tier-pill ${score.tierClass}`;
+      tierPill.textContent = score.tier;
+
+      const expandIcon = document.createElement('span');
+      expandIcon.className = 'expand-icon';
+      expandIcon.textContent = '▼';
+      expandIcon.setAttribute('aria-hidden', 'true');
+
+      scoreBlock.appendChild(scoreNum);
+      scoreBlock.appendChild(tierPill);
+      scoreBlock.appendChild(expandIcon);
+
+      header.append(checkbox, rankEl, infoEl, scoreBlock);
+
+      // ── Detail Panel ────────────────────────────────────────
+      const detail = document.createElement('div');
+      detail.className = 'card-detail';
+
+      const inner = document.createElement('div');
+      inner.className = 'card-detail-inner';
+
+      // Meta grid
+      const meta = document.createElement('div');
+      meta.className = 'detail-meta';
+
+      function makeMetaItem(labelText, valueText) {
+        const item = document.createElement('div');
+        item.className = 'meta-item';
+        item.innerHTML = `<label>${labelText}</label><span>${valueText || '—'}</span>`;
+        return item;
+      }
+
+      const expDisplay = candidate.experience !== null
+        ? `${candidate.experience} year${candidate.experience !== 1 ? 's' : ''}` : null;
+
+      meta.appendChild(makeMetaItem('Experience', expDisplay));
+      meta.appendChild(makeMetaItem('Location', candidate.location));
+      meta.appendChild(makeMetaItem('Education', candidate.education));
+      meta.appendChild(makeMetaItem('Email', candidate.email));
+      meta.appendChild(makeMetaItem('Phone', candidate.phone));
+
+      // Score breakdown
+      const scoreMeta = document.createElement('div');
+      scoreMeta.className = 'meta-item';
+      const scoreBarDiv = document.createElement('div');
+      scoreBarDiv.innerHTML = '<label>Score breakdown</label>';
+      const scoreBar = document.createElement('div');
+      scoreBar.className = 'score-bar';
+      scoreBar.innerHTML = `
+        <span class="score-chip">Skills ${score.skillScore}/60</span>
+        <span class="score-chip">Experience ${score.expScore}/25</span>
+        <span class="score-chip">Location ${score.locScore}/15</span>
+      `;
+      scoreBarDiv.appendChild(scoreBar);
+      scoreMeta.appendChild(scoreBarDiv);
+      meta.appendChild(scoreMeta);
+
+      inner.appendChild(meta);
+
+      // Matched skills
+      if (score.matchedSkills.length > 0) {
+        const sec = document.createElement('div');
+        sec.className = 'skills-section';
+        const lbl = document.createElement('div');
+        lbl.className = 'skills-label';
+        lbl.textContent = `Matched skills (${score.matchedSkills.length})`;
+        const tags = document.createElement('div'); tags.className = 'skill-tags';
+        score.matchedSkills.forEach(s => {
+          const t = document.createElement('span');
+          t.className = 'skill-tag matched'; t.textContent = s; tags.appendChild(t);
+        });
+        sec.appendChild(lbl); sec.appendChild(tags);
+        inner.appendChild(sec);
+      }
+
+      // Missing skills
+      if (score.missingSkills.length > 0) {
+        const sec = document.createElement('div');
+        sec.className = 'skills-section';
+        const lbl = document.createElement('div');
+        lbl.className = 'skills-label';
+        lbl.textContent = `Missing skills (${score.missingSkills.length})`;
+        const tags = document.createElement('div'); tags.className = 'skill-tags';
+        score.missingSkills.forEach(s => {
+          const t = document.createElement('span');
+          t.className = 'skill-tag missing'; t.textContent = s; tags.appendChild(t);
+        });
+        sec.appendChild(lbl); sec.appendChild(tags);
+        inner.appendChild(sec);
+      }
+
+      detail.appendChild(inner);
+      card.appendChild(header);
+      card.appendChild(detail);
+
+      // ── Toggle expand ────────────────────────────────────────
+      function toggleExpand() {
+        const expanded = card.classList.toggle('expanded');
+        header.setAttribute('aria-expanded', String(expanded));
+      }
+      header.addEventListener('click', toggleExpand);
+      header.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(); }
+      });
+
+      return card;
+    }
+
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 7 — CSV EXPORT
+    // ════════════════════════════════════════════════════════════
+
+    function exportCSV(results) {
+      const checkedRanks = new Set();
+      document.querySelectorAll('.card-checkbox').forEach((cb, i) => {
+        if (cb.checked) checkedRanks.add(i);
+      });
+
+      if (checkedRanks.size === 0) {
+        alert('No candidates selected. Please check at least one candidate.');
+        return;
+      }
+
+      const headers = [
+        'Rank','Name','Score','Tier','Email','Phone','Experience (yrs)',
+        'Current Company','Education','Location',
+        'Skill Score','Exp Score','Loc Score','Matched Skills','Missing Skills'
+      ];
+
+      const rows = [headers];
+      results.forEach(({ candidate, score }, idx) => {
+        if (!checkedRanks.has(idx)) return;
+        rows.push([
+          idx + 1, candidate.name, score.total, score.tier,
+          candidate.email || '', candidate.phone || '',
+          candidate.experience !== null ? candidate.experience : '',
+          candidate.company || '', candidate.education || '', candidate.location || '',
+          score.skillScore, score.expScore, score.locScore,
+          score.matchedSkills.join('; '), score.missingSkills.join('; ')
+        ]);
+      });
+
+      const csv = rows.map(r =>
+        r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')
+      ).join('\r\n');
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = 'hiresphere_shortlist.csv';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+    }
+
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 8 — MAIN CONTROLLER
+    // ════════════════════════════════════════════════════════════
+
+    let lastResults = [];
+    let activeFilter = 'all';
+
+    const scoreBtn           = document.getElementById('score-btn');
+    const btnText            = document.getElementById('btn-text');
+    const resultsPlaceholder = document.getElementById('results-placeholder');
+    const resultsList        = document.getElementById('results-list');
+    const resultsSection     = document.getElementById('results-section');
+    const resultsHeader      = document.getElementById('results-header');
+    const resultsCount       = document.getElementById('results-count');
+    const filterTabsEl       = document.getElementById('filter-tabs');
+
+    // ── Score button click ────────────────────────────────────
+    scoreBtn.addEventListener('click', triggerScoring);
+
+    // ── Cmd+Enter keyboard shortcut ──────────────────────────
+    document.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        triggerScoring();
+      }
+    });
+
+    function triggerScoring() {
+      const jdText      = document.getElementById('jd-input').value.trim();
+      const resumesText = document.getElementById('resumes-input').value.trim();
+
+      if (!jdText)      { showError('Please paste a Job Description before scoring.'); return; }
+      if (!resumesText) { showError('Please paste at least one resume before scoring.'); return; }
+
+      // Loading state: dot-pulse animation
+      scoreBtn.disabled = true;
+      btnText.innerHTML = `<span class="dot-pulse"><span></span><span></span><span></span></span>&nbsp;Scoring candidates...`;
+
+      setTimeout(() => {
+        try { runScoring(jdText, resumesText); }
+        finally {
+          scoreBtn.disabled = false;
+          btnText.innerHTML = `Score candidates <span class="btn-arrow">→</span>`;
+        }
+      }, 900);
+    }
+
+    function runScoring(jdText, resumesText) {
+      const jd = parseJD(jdText);
+
+      if (jd.skills.length === 0) {
+        showError('Could not extract skills from the Job Description. Please list required skills clearly.');
+        return;
+      }
+
+      const rawResumes = resumesText
+        .split(/^---+$/m)
+        .map(r => r.trim())
+        .filter(r => r.length > 0);
+
+      if (rawResumes.length === 0) {
+        showError('No resumes found. Separate multiple resumes with --- on its own line.');
+        return;
+      }
+
+      const results = rawResumes.map(raw => {
+        const candidate = parseResume(raw);
+        const score     = scoreCandidate(candidate, jd);
+        return { candidate, score };
+      });
+
+      results.sort((a, b) => b.score.total - a.score.total);
+      lastResults = results;
+      activeFilter = 'all';
+      renderResults(results);
+    }
+
+    function renderResults(results) {
+      // Show UI chrome
+      resultsPlaceholder.style.display = 'none';
+      resultsHeader.style.display      = 'flex';
+      filterTabsEl.style.display       = 'flex';
+
+      // Update count pill
+      const visible = getFilteredResults(results, activeFilter);
+      resultsCount.textContent = `${results.length} candidate${results.length !== 1 ? 's' : ''}`;
+
+      // Export button wiring
+      const exportBtn = document.getElementById('export-btn');
+      exportBtn.onclick = () => exportCSV(lastResults);
+
+      // Filter tabs wiring
+      document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.onclick = () => {
+          activeFilter = tab.dataset.filter;
+          document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          renderCards(getFilteredResults(lastResults, activeFilter));
+        };
+      });
+
+      renderCards(visible);
+      resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function getFilteredResults(results, filter) {
+      if (filter === 'all') return results;
+      return results.filter(r => r.score.tierClass === filter);
+    }
+
+    function renderCards(results) {
+      resultsList.innerHTML = '';
+      if (results.length === 0) {
+        resultsList.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text-faint);font-size:13px;">No candidates in this tier.</div>`;
+        return;
+      }
+      results.forEach(({ candidate, score }, idx) => {
+        resultsList.appendChild(buildCard(candidate, score, idx + 1, idx));
+      });
+    }
+
+    function showError(message) {
+      resultsPlaceholder.style.display = 'block';
+      resultsPlaceholder.innerHTML = `<div class="error-msg">⚠ ${message}</div>`;
+      resultsList.innerHTML = '';
+      resultsHeader.style.display = 'none';
+      filterTabsEl.style.display  = 'none';
+    }
+
+
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 9 — PDF UPLOAD & PARSING  (Prompt 5)
+    // Uses PDF.js to extract text from uploaded PDFs and
+    // inject the content into the matching textarea.
+    // ════════════════════════════════════════════════════════════
+
+    // Configure PDF.js worker (CDN)
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    /**
+     * extractTextFromPDF(file)
+     * Returns a promise that resolves to the full plain-text of a PDF file.
+     */
+    async function extractTextFromPDF(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pages = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items.map(item => item.str).join(' ');
+        pages.push(pageText);
+      }
+      return pages.join('\n');
+    }
+
+    /**
+     * handleJDUpload(files)
+     * Extracts text from a single JD PDF and populates the JD textarea.
+     */
+    async function handleJDUpload(files) {
+      if (!files || files.length === 0) return;
+      const file = files[0];
+      if (file.type !== 'application/pdf') {
+        alert('Please upload a PDF file for the Job Description.');
+        return;
+      }
+      const loading = document.getElementById('jd-drop-loading');
+      const status  = document.getElementById('jd-drop-status');
+      loading.style.display = 'inline';
+      status.style.display  = 'none';
+      try {
+        const text = await extractTextFromPDF(file);
+        document.getElementById('jd-input').value = text.trim();
+        status.textContent    = '1 file loaded';
+        status.style.display  = 'inline-flex';
+      } catch (err) {
+        alert('Could not parse PDF. Try copying and pasting the text manually.');
+        console.error(err);
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+
+    /**
+     * handleResumeUpload(files)
+     * Extracts text from one or more resume PDFs, joins them with ---,
+     * and appends to (or fills) the resumes textarea.
+     */
+    async function handleResumeUpload(files) {
+      if (!files || files.length === 0) return;
+      const pdfs = Array.from(files).filter(f => f.type === 'application/pdf');
+      if (pdfs.length === 0) {
+        alert('Please upload PDF files for resumes.');
+        return;
+      }
+      const loading = document.getElementById('res-drop-loading');
+      const status  = document.getElementById('res-drop-status');
+      loading.style.display = 'inline';
+      status.style.display  = 'none';
+      try {
+        const texts = await Promise.all(pdfs.map(extractTextFromPDF));
+        const combined = texts.map(t => t.trim()).join('\n\n---\n\n');
+        const textarea = document.getElementById('resumes-input');
+        // Append if textarea already has content, else replace
+        if (textarea.value.trim()) {
+          textarea.value = textarea.value.trim() + '\n\n---\n\n' + combined;
+        } else {
+          textarea.value = combined;
+        }
+        status.textContent   = `${pdfs.length} file${pdfs.length > 1 ? 's' : ''} loaded`;
+        status.style.display = 'inline-flex';
+      } catch (err) {
+        alert('Could not parse one or more PDFs. Try pasting the text manually.');
+        console.error(err);
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+
+    // ── Wire up file inputs ──────────────────────────────────────
+    document.getElementById('jd-pdf-input').addEventListener('change', function () {
+      handleJDUpload(this.files);
+    });
+
+    document.getElementById('res-pdf-input').addEventListener('change', function () {
+      handleResumeUpload(this.files);
+    });
+
+    // ── Drag-and-drop for JD dropzone ────────────────────────────
+    const jdDropzone = document.getElementById('jd-dropzone');
+    jdDropzone.addEventListener('dragover', e => { e.preventDefault(); jdDropzone.classList.add('dragover'); });
+    jdDropzone.addEventListener('dragleave', () => jdDropzone.classList.remove('dragover'));
+    jdDropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      jdDropzone.classList.remove('dragover');
+      handleJDUpload(e.dataTransfer.files);
+    });
+
+    // ── Drag-and-drop for Resumes dropzone ───────────────────────
+    const resDropzone = document.getElementById('res-dropzone');
+    resDropzone.addEventListener('dragover', e => { e.preventDefault(); resDropzone.classList.add('dragover'); });
+    resDropzone.addEventListener('dragleave', () => resDropzone.classList.remove('dragover'));
+    resDropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      resDropzone.classList.remove('dragover');
+      handleResumeUpload(e.dataTransfer.files);
+    });
+
+  </script>
+
+</body>
+</html>
